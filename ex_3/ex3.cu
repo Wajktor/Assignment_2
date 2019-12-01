@@ -14,6 +14,7 @@
 
 #include <fstream>
 
+#include <sys/time.h>
 
 #include <stdio.h>
 
@@ -35,6 +36,11 @@ __host__ __device__ float3 operator*(const float3 &a, const float &b) {
 }
 
 
+double cpuSecond() {
+   struct timeval tp;
+   gettimeofday(&tp,NULL);
+   return ((double)tp.tv_sec + (double)tp.tv_usec*1.e-6);
+}
 
 
 
@@ -80,8 +86,8 @@ int main(int argc, char **argv) {
 	int block_sizes[] = {16, 32, 64, 128, 256};
 	int num_particles[] = {10, 100, 1000, 10000, 100000};
 
-	int block_array_len = 5;
-	int num_particles_len = 5;
+	//int block_array_len = 5;
+	//int num_particles_len = 5;
 
 
 	int block_array_len = 1;
@@ -100,8 +106,11 @@ int main(int argc, char **argv) {
 	for(int i = 0; i < block_array_len; ++i){
 		for(int j = 0; j < num_particles_len; ++j){
 
-			TPB = block_sizes[i];
-			NUM_PARTICLES = num_particles[j];
+			//std::cout << "TPB: " << TPB << "\n";
+			//std::cout << "numP: " << NUM_PARTICLES << "\n";
+
+			//TPB = block_sizes[i];
+			//NUM_PARTICLES = num_particles[j];
 
 			std::cout << "TPB: " << TPB << ", num particles: " << NUM_PARTICLES <<  "\n";
 			
@@ -141,13 +150,14 @@ int main(int argc, char **argv) {
 
 			printf("Calculating on GPU... \n");
 
-			clock_t begin = clock();
+			double iStart = cpuSecond();
 			for(int k = 0; k < NUM_ITERATIONS; ++k){
 				timeStep <<< BLOCKS, TPB >>>(d_particles, TPB);
+				cudaDeviceSynchronize();
 			}
-			clock_t end = clock();
-			double time_elapsed = double(end-begin)/CLOCKS_PER_SEC;
-			printf("Done, elapsed time: %f s\n", double(end-begin)/CLOCKS_PER_SEC );
+			double time_elapsed = cpuSecond() - iStart;
+
+			printf("Done, elapsed time: %f s\n", time_elapsed );
 
 				if (myfile.is_open()){
 					myfile << "GPU " << TPB << " " << NUM_PARTICLES << " " << time_elapsed << "\n";
@@ -164,19 +174,17 @@ int main(int argc, char **argv) {
 
 			printf("Calculating on CPU... \n");
 
-			begin = clock();
+			iStart = cpuSecond();
 			for(int k = 0; k < NUM_ITERATIONS; ++k){
 				timeStep_cpu(particles, NUM_PARTICLES);
 			}
-			end = clock();
-
-			time_elapsed = double(end-begin)/CLOCKS_PER_SEC;
+			time_elapsed = cpuSecond() - iStart;
 
 			if (myfile.is_open()){
 				myfile << "CPU 0 " << NUM_PARTICLES << " " << time_elapsed << "\n";
 			}
 
-			printf("Done, elapsed time: %f s\n", double(end-begin)/CLOCKS_PER_SEC );
+			printf("Done, elapsed time: %f s\n", time_elapsed );
 
 		/*	for (int i = 0; i < NUM_PARTICLES; ++i){
 				printf("Position: x=%f, y=%f, z=%f\n", particles[i].position.x, particles[i].position.y, particles[i].position.z);
